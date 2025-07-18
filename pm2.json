@@ -1,0 +1,16 @@
+{
+  "apps": [
+    {
+      "name": "autobotEngine",
+      "script": "lib/server/indexEngine.js",
+      "error_file": "/var/log/pm2/autobotEngine.error.log",
+      "out_file": "/var/log/pm2/autobotEngine.out.log"
+    },
+    {
+      "name": "autobotApi",
+      "script": "lib/server/indexApi.js",
+      "error_file": "/var/log/pm2/autobotApi.error.log",
+      "out_file": "/var/log/pm2/autobotApi.out.log"
+    }
+  ]
+}
