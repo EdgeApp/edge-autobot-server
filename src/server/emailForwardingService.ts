@@ -1,10 +1,9 @@
 import {
   createImapConnection,
   createSmtpTransporter,
-  listUnreadMessages,
+  listRecentMessages,
   getMessage,
-  sendEmail,
-  markAsRead
+  sendEmail
 } from './imapService'
 import { ImapConfig, EmailForwardRule } from '../common/types'
 import {
@@ -13,25 +12,27 @@ import {
   isValidEmail,
   snooze
 } from '../common/utils'
+import { getEmailStatus, saveEmailStatus } from './databaseService'
 
 // State management for email forwarding service
 interface ForwardingServiceState {
   imap: any
   smtp: any
   config: ImapConfig
-  processedMessages: Set<string>
+  db: any
   isRunning: boolean
 }
 
 // Create email forwarding service state
 export const createForwardingService = (
-  config: ImapConfig
+  config: ImapConfig,
+  db: any
 ): ForwardingServiceState => {
   return {
     imap: createImapConnection(config),
     smtp: createSmtpTransporter(config),
     config,
-    processedMessages: new Set<string>(),
+    db,
     isRunning: false
   }
 }
@@ -60,17 +61,29 @@ export const startForwardingService = async (
         state.imap.connect()
       })
 
-      // Get unread messages
-      const messageIds = await listUnreadMessages(state.imap)
+      // Get recent messages
+      const messageIds = await listRecentMessages(state.imap)
+
+      // Get the last read timestamp
+      const emailStatus = await getEmailStatus(state.db, state.config.email)
+      const lastReadDate = emailStatus
+        ? new Date(emailStatus.lastRead)
+        : new Date(0)
+      let latestProcessedDate = lastReadDate
 
       for (const messageId of messageIds) {
-        if (state.processedMessages.has(messageId)) {
-          continue
-        }
-
         try {
           const message = await getMessage(state.imap, messageId)
-          console.log(`Processing message: ${message.subject}`)
+          const messageDate = new Date(message.date)
+
+          // Skip messages that are older than or equal to the last read timestamp
+          if (messageDate <= lastReadDate) {
+            continue
+          }
+
+          console.log(
+            `Processing message: ${message.subject} (${message.date})`
+          )
 
           // Check if subject matches any forwarding rules
           for (const rule of state.config.forwardRules) {
@@ -105,12 +118,23 @@ export const startForwardingService = async (
             }
           }
 
-          // Mark message as read
-          await markAsRead(state.imap, messageId)
-          state.processedMessages.add(messageId)
+          // Track the latest processed date
+          if (messageDate > latestProcessedDate) {
+            latestProcessedDate = messageDate
+          }
         } catch (error) {
           console.error(`Error processing message ${messageId}:`, error)
         }
+      }
+
+      // Update the last read timestamp if we processed any new messages
+      if (latestProcessedDate > lastReadDate) {
+        await saveEmailStatus(state.db, state.config.email, {
+          lastRead: latestProcessedDate.toISOString()
+        })
+        console.log(
+          `Updated last read timestamp to: ${latestProcessedDate.toISOString()}`
+        )
       }
 
       // Disconnect from IMAP

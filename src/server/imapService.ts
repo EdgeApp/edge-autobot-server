@@ -29,8 +29,8 @@ export const createSmtpTransporter = (config: ImapConfig) => {
   })
 }
 
-// List unread messages
-export const listUnreadMessages = (imap: Imap): Promise<string[]> => {
+// List recent messages (last 30, regardless of read status)
+export const listRecentMessages = (imap: Imap): Promise<string[]> => {
   return new Promise((resolve, reject) => {
     imap.openBox('INBOX', false, (err, box) => {
       if (err) {
@@ -38,15 +38,21 @@ export const listUnreadMessages = (imap: Imap): Promise<string[]> => {
         return
       }
 
-      // Search for unread messages
-      imap.search(['UNSEEN'], (err, results) => {
+      // Get total number of messages
+      const totalMessages = box.messages.total
+      if (totalMessages === 0) {
+        resolve([])
+        return
+      }
+
+      // Calculate range for last 30 messages
+      const start = Math.max(1, totalMessages - 29) // IMAP uses 1-based indexing
+      const end = totalMessages
+
+      // Search for messages in the range
+      imap.search([`${start}:${end}`], (err, results) => {
         if (err) {
           reject(err)
-          return
-        }
-
-        if (results.length === 0) {
-          resolve([])
           return
         }
 

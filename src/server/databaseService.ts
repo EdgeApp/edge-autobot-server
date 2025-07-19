@@ -1,5 +1,12 @@
 import nano from 'nano'
-import { ImapConfig, ImapConfigDoc, asImapConfig } from '../common/types'
+import {
+  ImapConfig,
+  ImapConfigDoc,
+  asImapConfig,
+  EmailStatus,
+  EmailStatusDoc,
+  asEmailStatus
+} from '../common/types'
 import { config } from '../config'
 
 // Create CouchDB connection
@@ -141,6 +148,59 @@ export const updateForwardRules = async (
     await db.insert(updatedDoc)
   } catch (error: any) {
     console.error(`Error updating forward rules for ${emailAddress}:`, error)
+    throw error
+  }
+}
+
+// Get email status for a specific email address
+export const getEmailStatus = async (
+  db: nano.DocumentScope<ImapConfigDoc>,
+  emailAddress: string
+): Promise<EmailStatus | null> => {
+  try {
+    const statusId = `${emailAddress}__status`
+    const doc = (await db.get(statusId)) as any
+    return asEmailStatus(doc)
+  } catch (error: any) {
+    if (error.statusCode === 404) {
+      return null
+    }
+    console.error(`Error getting email status for ${emailAddress}:`, error)
+    throw error
+  }
+}
+
+// Save or update email status
+export const saveEmailStatus = async (
+  db: nano.DocumentScope<ImapConfigDoc>,
+  emailAddress: string,
+  emailStatus: EmailStatus
+): Promise<void> => {
+  try {
+    const statusId = `${emailAddress}__status`
+    const existingStatus = await getEmailStatus(db, emailAddress)
+
+    if (existingStatus) {
+      // Update existing document
+      const doc = (await db.get(statusId)) as any
+      const updatedDoc: EmailStatusDoc = {
+        ...emailStatus,
+        _id: statusId,
+        _rev: doc._rev
+      }
+      await db.insert(updatedDoc as any)
+    } else {
+      // Create new document
+      const newDoc: EmailStatusDoc = {
+        ...emailStatus,
+        _id: statusId
+      }
+      await db.insert(newDoc as any)
+    }
+
+    console.log(`Saved email status for ${emailAddress}`)
+  } catch (error: any) {
+    console.error(`Error saving email status for ${emailAddress}:`, error)
     throw error
   }
 }

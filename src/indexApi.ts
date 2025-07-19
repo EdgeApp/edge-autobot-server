@@ -76,7 +76,7 @@ async function main(): Promise<void> {
       }
 
       // Create and start new forwarding service
-      const forwardingServiceState = createForwardingService(imapConfig)
+      const forwardingServiceState = createForwardingService(imapConfig, db)
       forwardingServices.set(emailAddress, forwardingServiceState)
 
       startForwardingService(forwardingServiceState).catch((error) => {

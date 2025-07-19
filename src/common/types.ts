@@ -14,10 +14,20 @@ export const asImapConfig = asObject({
   forwardRules: asArray(asEmailForwardRule)
 })
 
+export const asEmailStatus = asObject({
+  lastRead: asString
+})
+
 export type EmailForwardRule = ReturnType<typeof asEmailForwardRule>
 export type ImapConfig = ReturnType<typeof asImapConfig>
+export type EmailStatus = ReturnType<typeof asEmailStatus>
 
 export interface ImapConfigDoc extends ImapConfig {
+  _id: string
+  _rev?: string
+}
+
+export interface EmailStatusDoc extends EmailStatus {
   _id: string
   _rev?: string
 }

@@ -20,7 +20,7 @@ async function main(): Promise<void> {
       const configs = await getAllImapConfigs(db)
 
       for (const { emailAddress, config: imapConfig } of configs) {
-        const forwardingServiceState = createForwardingService(imapConfig)
+        const forwardingServiceState = createForwardingService(imapConfig, db)
         forwardingServices.set(emailAddress, forwardingServiceState)
 
         // Start the forwarding service
@@ -65,7 +65,7 @@ async function main(): Promise<void> {
       for (const { emailAddress, config: imapConfig } of configs) {
         if (!currentEmails.has(emailAddress)) {
           console.log(`Starting forwarding service for ${emailAddress}`)
-          const forwardingServiceState = createForwardingService(imapConfig)
+          const forwardingServiceState = createForwardingService(imapConfig, db)
           forwardingServices.set(emailAddress, forwardingServiceState)
 
           startForwardingService(forwardingServiceState).catch((error) => {
