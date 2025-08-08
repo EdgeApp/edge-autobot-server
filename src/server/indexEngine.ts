@@ -1,10 +1,10 @@
-import {
-  processEmailForwarding,
-  createImapConnection,
-  createSmtpTransporter
-} from './emailForwardingService'
-import { createCouchConnection, getAllImapConfigs } from './databaseService'
 import { logger } from '../common/utils'
+import { createCouchConnection, getAllImapConfigs } from './databaseService'
+import {
+  createImapConnection,
+  createSmtpTransporter,
+  processEmailForwarding
+} from './emailForwardingService'
 
 async function main(): Promise<void> {
   console.log('Starting IMAP Email Forwarding Engine...')
@@ -53,15 +53,19 @@ async function main(): Promise<void> {
   await processAllEmails()
 
   // Main loop - process all emails every 60 seconds
-  setInterval(processAllEmails, 60000)
+  setInterval(() => {
+    processAllEmails().catch((error: unknown) => {
+      logger.error('Error in scheduled email processing:', error)
+    })
+  }, 60000)
 
-  process.on('SIGINT', async () => {
+  process.on('SIGINT', () => {
     console.log('Shutting down email forwarding engine...')
     process.exit(0)
   })
 }
 
-main().catch(e => {
+main().catch((e: unknown) => {
   console.error('Email forwarding engine error:', e)
   process.exit(1)
 })

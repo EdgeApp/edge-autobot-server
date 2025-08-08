@@ -1,10 +1,10 @@
 import {
   asArray,
+  asBoolean,
+  asNumber,
   asObject,
   asOptional,
-  asString,
-  asNumber,
-  asBoolean
+  asString
 } from 'cleaners'
 
 export const asEmailForwardRule = asObject({

@@ -1,12 +1,13 @@
 import nano from 'nano'
+
 import {
-  ImapConfig,
-  ImapConfigDoc,
-  asImapConfig,
-  EmailStatus,
-  EmailStatusDoc,
   asEmailStatus,
-  EmailForwardRule
+  asImapConfig,
+  type EmailForwardRule,
+  type EmailStatus,
+  type EmailStatusDoc,
+  type ImapConfig,
+  type ImapConfigDoc
 } from '../common/types'
 import { config } from '../config'
 
@@ -125,7 +126,7 @@ export const getAllImapConfigs = async (
 
     for (const row of response.rows) {
       // Skip design documents and documents without email field
-      if (row.doc != null && row.doc.forwardRules != null && row.doc.active) {
+      if (row.doc?.forwardRules != null && row.doc.active) {
         try {
           const config = asImapConfig(row.doc)
           configs.push({

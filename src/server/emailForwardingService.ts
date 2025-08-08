@@ -1,15 +1,16 @@
-import { listRecentMessages, getMessage, sendEmail } from './imapService'
-import { ImapConfig, ImapConfigDoc } from '../common/types'
+import type nano from 'nano'
+import type Imap from 'node-imap'
+import type nodemailer from 'nodemailer'
+
+import type { ImapConfig, ImapConfigDoc } from '../common/types'
 import {
-  matchesSubject,
   formatEmailBody,
   isValidEmail,
-  logger
+  logger,
+  matchesSubject
 } from '../common/utils'
 import { getEmailStatus, saveEmailStatus } from './databaseService'
-import Imap from 'node-imap'
-import nodemailer from 'nodemailer'
-import nano from 'nano'
+import { getMessage, listRecentMessages, sendEmail } from './imapService'
 
 // Export the connection functions for use in the master loop
 export { createImapConnection, createSmtpTransporter } from './imapService'

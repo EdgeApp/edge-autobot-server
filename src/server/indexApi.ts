@@ -1,5 +1,6 @@
 import express from 'express'
 import path from 'path'
+
 import { config } from '../config'
 
 async function main(): Promise<void> {
@@ -34,7 +35,7 @@ async function main(): Promise<void> {
   })
 
   // Start server
-  app.listen(config.httpPort, async () => {
+  app.listen(config.httpPort, () => {
     console.log(`API server running at http://localhost:${config.httpPort}`)
     console.log('Frontend available at: http://localhost:8008')
     console.log('Configure email forwarding directly in CouchDB:')
@@ -42,13 +43,13 @@ async function main(): Promise<void> {
   })
 
   // Graceful shutdown
-  process.on('SIGINT', async () => {
+  process.on('SIGINT', () => {
     console.log('Shutting down API server...')
     process.exit(0)
   })
 }
 
-main().catch(e => {
+main().catch((e: unknown) => {
   console.error('API server error:', e)
   process.exit(1)
 })

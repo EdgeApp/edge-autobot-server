@@ -62,7 +62,7 @@ rl.question(
         password => {
           const config: ImapConfig = {
             email: emailAddress,
-            password: password,
+            password,
             host: 'imap.gmail.com',
             port: 993,
             tls: 'implicit',

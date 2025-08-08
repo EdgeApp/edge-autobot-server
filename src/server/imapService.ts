@@ -1,7 +1,8 @@
+import { type ParsedMail, simpleParser } from 'mailparser'
 import Imap from 'node-imap'
-import { simpleParser, ParsedMail } from 'mailparser'
 import nodemailer from 'nodemailer'
-import { ImapConfig, EmailMessage } from '../common/types'
+
+import type { EmailMessage, ImapConfig } from '../common/types'
 
 const imaplogger = (...args: unknown[]): void => {
   const message = args[0]
@@ -36,7 +37,9 @@ export const createImapConnection = (config: ImapConfig): Imap => {
 }
 
 // Create SMTP transporter for sending emails
-export const createSmtpTransporter = (config: ImapConfig) => {
+export const createSmtpTransporter = (
+  config: ImapConfig
+): nodemailer.Transporter => {
   return nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -47,8 +50,8 @@ export const createSmtpTransporter = (config: ImapConfig) => {
 }
 
 // List recent messages (last 30, regardless of read status)
-export const listRecentMessages = (imap: Imap): Promise<string[]> => {
-  return new Promise((resolve, reject) => {
+export const listRecentMessages = async (imap: Imap): Promise<string[]> => {
+  return await new Promise((resolve, reject) => {
     imap.openBox('INBOX', false, (err, box) => {
       if (err != null) {
         reject(err)
@@ -80,16 +83,15 @@ export const listRecentMessages = (imap: Imap): Promise<string[]> => {
 }
 
 // Get message content
-export const getMessage = (
+export const getMessage = async (
   imap: Imap,
   messageId: string
 ): Promise<EmailMessage> => {
-  return new Promise((resolve, reject) => {
+  return await new Promise((resolve, reject) => {
     const fetch = imap.fetch(messageId, { bodies: '' })
 
     fetch.on('message', (msg, seqno) => {
       msg.on('body', (stream, info) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         simpleParser(stream as any, (err, parsed: ParsedMail) => {
           if (err != null) {
             reject(err)

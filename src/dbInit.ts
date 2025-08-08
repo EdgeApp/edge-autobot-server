@@ -1,9 +1,9 @@
 import {
   connectCouch,
-  DatabaseSetup,
+  type DatabaseSetup,
   makeMangoIndex,
   setupDatabase,
-  SetupDatabaseOptions
+  type SetupDatabaseOptions
 } from 'edge-server-tools'
 
 import { config } from './config'
@@ -54,7 +54,7 @@ export async function initDbs(): Promise<void> {
   process.exit(0)
 }
 
-initDbs().catch(err => {
+initDbs().catch((err: unknown) => {
   console.error(err)
   process.exit(1)
 })
