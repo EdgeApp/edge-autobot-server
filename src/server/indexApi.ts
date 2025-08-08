@@ -48,7 +48,7 @@ async function main(): Promise<void> {
   })
 }
 
-main().catch((e) => {
+main().catch(e => {
   console.error('API server error:', e)
   process.exit(1)
 })

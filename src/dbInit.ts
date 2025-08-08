@@ -48,13 +48,13 @@ export async function initDbs(): Promise<void> {
   console.log('Using cluster configuration')
   const pool = connectCouch(config.couchMainCluster, config.couchUris)
   await Promise.all(
-    databases.map(async (setup) => await setupDatabase(pool, setup, options))
+    databases.map(async setup => await setupDatabase(pool, setup, options))
   )
   console.log('Done')
   process.exit(0)
 }
 
-initDbs().catch((err) => {
+initDbs().catch(err => {
   console.error(err)
   process.exit(1)
 })

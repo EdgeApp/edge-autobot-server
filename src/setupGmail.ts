@@ -47,7 +47,7 @@ console.log('   - Generate a new app password for "Mail"\n')
 
 rl.question(
   'Do you have IMAP enabled and an App Password ready? (y/n): ',
-  (answer) => {
+  answer => {
     if (answer.toLowerCase() !== 'y') {
       console.log(
         '\nPlease complete the prerequisites first, then run this script again.'
@@ -56,10 +56,10 @@ rl.question(
       return
     }
 
-    rl.question('Enter your Gmail address: ', (emailAddress) => {
+    rl.question('Enter your Gmail address: ', emailAddress => {
       rl.question(
         'Enter your App Password (not your regular Gmail password): ',
-        (password) => {
+        password => {
           const config: ImapConfig = {
             email: emailAddress,
             password: password,

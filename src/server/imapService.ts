@@ -73,7 +73,7 @@ export const listRecentMessages = (imap: Imap): Promise<string[]> => {
           return
         }
 
-        resolve(results.map((id) => id.toString()))
+        resolve(results.map(id => id.toString()))
       })
     })
   })

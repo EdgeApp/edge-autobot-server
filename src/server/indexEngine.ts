@@ -61,7 +61,7 @@ async function main(): Promise<void> {
   })
 }
 
-main().catch((e) => {
+main().catch(e => {
   console.error('Email forwarding engine error:', e)
   process.exit(1)
 })
