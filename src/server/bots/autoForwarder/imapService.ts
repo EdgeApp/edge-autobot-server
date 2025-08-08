@@ -2,7 +2,7 @@ import { type ParsedMail, simpleParser } from 'mailparser'
 import Imap from 'node-imap'
 import nodemailer from 'nodemailer'
 
-import type { EmailMessage, ImapConfig } from '../common/types'
+import type { EmailMessage, ImapConfig } from '../../../common/types'
 
 const imaplogger = (...args: unknown[]): void => {
   const message = args[0]

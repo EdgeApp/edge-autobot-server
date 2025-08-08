@@ -2,13 +2,13 @@ import type nano from 'nano'
 import type Imap from 'node-imap'
 import type nodemailer from 'nodemailer'
 
-import type { ImapConfig, ImapConfigDoc } from '../common/types'
+import type { ImapConfig, ImapConfigDoc } from '../../../common/types'
 import {
   formatEmailBody,
   isValidEmail,
   logger,
   matchesSubject
-} from '../common/utils'
+} from '../../../common/utils'
 import { getEmailStatus, saveEmailStatus } from './databaseService'
 import { getMessage, listRecentMessages, sendEmail } from './imapService'
 

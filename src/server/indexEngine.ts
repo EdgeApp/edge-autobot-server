@@ -1,10 +1,13 @@
 import { logger } from '../common/utils'
-import { createCouchConnection, getAllImapConfigs } from './databaseService'
+import {
+  createCouchConnection,
+  getAllImapConfigs
+} from './bots/autoForwarder/databaseService'
 import {
   createImapConnection,
   createSmtpTransporter,
   processEmailForwarding
-} from './emailForwardingService'
+} from './bots/autoForwarder/emailForwardingService'
 
 async function main(): Promise<void> {
   console.log('Starting IMAP Email Forwarding Engine...')

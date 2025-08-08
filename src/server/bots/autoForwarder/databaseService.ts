@@ -8,8 +8,8 @@ import {
   type EmailStatusDoc,
   type ImapConfig,
   type ImapConfigDoc
-} from '../common/types'
-import { config } from '../config'
+} from '../../../common/types'
+import { config } from '../../../config'
 
 // Type for CouchDB documents that can be either ImapConfig or EmailStatus
 type CouchDocument =
