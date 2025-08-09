@@ -1,7 +1,9 @@
+import cron from 'node-cron'
+
 import { snooze } from '../common/utils'
 import { mailBot } from './bots/autoForwarder/mailBot'
 import { edgeTesterBot } from './bots/edgeTester/testerBot'
-import type { AutobotEngine } from './types'
+import type { AutobotEngineConfig } from './types'
 
 type Frequency = 'minute' | 'hour' | 'day' | 'week' | 'month'
 
@@ -15,46 +17,57 @@ const frequencyToMs: Record<Frequency, number> = {
 
 const createEngineLoop = async (
   botId: string,
-  engine: AutobotEngine,
-  frequency: 'minute' | 'hour' | 'day' | 'week' | 'month'
+  engineConfig: AutobotEngineConfig
 ): Promise<void> => {
-  const delayMs = frequencyToMs[frequency]
+  const { engine, cron: cronExpr, frequency } = engineConfig
   const log = (...args: unknown[]): void => {
     const now = new Date().toISOString()
     const date = now.slice(5)
-    console.log(`${date}:${botId}:${frequency}: ${args.join(' ')}`)
+    const label = cronExpr ?? frequency ?? 'unknown'
+    console.log(`${date}:${botId}:${label}: ${args.join(' ')}`)
   }
 
-  while (true) {
-    const startTime = Date.now()
-    try {
-      await engine({ log })
-    } catch (err) {
-      console.error(`${botId}: Engine failed to run ${frequency}':`, err)
-    }
+  if (cronExpr != null) {
+    // Cron-based scheduling takes precedence
+    const task = cron.schedule(cronExpr, async () => {
+      try {
+        await engine({ log })
+      } catch (err: unknown) {
+        log('Engine failed to run cron:', err)
+      }
+    })
 
-    const now = Date.now()
-    const timeSinceStart = now - startTime
-    const timeToWait = Math.max(0, delayMs - timeSinceStart)
-    await snooze(timeToWait)
+    await task.start()
+  } else if (frequency != null) {
+    // Frequency-based scheduling as a fallback
+    const delayMs = frequencyToMs[frequency]
+    while (true) {
+      const startTime = Date.now()
+      try {
+        await engine({ log })
+      } catch (err) {
+        log('Engine failed to run')
+      }
+      const timeSinceStart = Date.now() - startTime
+      const timeToWait = Math.max(0, delayMs - timeSinceStart)
+      await snooze(timeToWait)
+    }
+  } else {
+    // No schedule provided; run once at startup
+    log('Engine failed to run (no schedule)')
   }
 }
 
 const main = (): void => {
-  const autobots = [mailBot, edgeTesterBot]
+  const autobots = [edgeTesterBot, mailBot]
   for (const autobot of autobots) {
     const { botId, engines } = autobot
     if (engines == null) continue
 
     for (const engine of engines) {
-      createEngineLoop(botId, engine.engine, engine.frequency).catch(
-        (e: unknown) => {
-          console.error(
-            `${botId}: Engine failed to initialize ${engine.frequency}':`,
-            e
-          )
-        }
-      )
+      createEngineLoop(botId, engine).catch((e: unknown) => {
+        console.error(`${botId}: Engine failed to initialize schedule`, e)
+      })
     }
   }
 }

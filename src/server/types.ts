@@ -4,10 +4,13 @@ export interface AutobotEngineArgs {
 
 export type AutobotEngine = (args: AutobotEngineArgs) => Promise<void>
 
+export interface AutobotEngineConfig {
+  frequency?: 'minute' | 'hour' | 'day' | 'week' | 'month'
+  cron?: string // Standard "* * * * *" style string; if provided, takes precedence over frequency
+  engine: AutobotEngine
+}
+
 export interface Autobot {
   botId: string
-  engines?: Array<{
-    frequency: 'minute' | 'hour' | 'day' | 'week' | 'month'
-    engine: AutobotEngine
-  }>
+  engines?: AutobotEngineConfig[]
 }

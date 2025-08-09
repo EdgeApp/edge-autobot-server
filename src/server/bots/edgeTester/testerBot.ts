@@ -84,7 +84,8 @@ export const edgeTesterBot: Autobot = {
   engines: [
     {
       engine: edgeTesterEngine,
-      frequency: 'day'
+      // Run tester at 1am every day
+      cron: '0 1 * * *'
     }
   ]
 }
