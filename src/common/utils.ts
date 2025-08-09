@@ -21,7 +21,9 @@ export const logger = {
 }
 
 export const snooze = async (ms: number): Promise<void> => {
-  await new Promise((resolve: () => void) => setTimeout(resolve, ms))
+  await new Promise((resolve: (value: unknown) => void) =>
+    setTimeout(resolve, ms)
+  )
 }
 
 export const retryFetch = async (

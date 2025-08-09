@@ -4,24 +4,26 @@ import nodemailer from 'nodemailer'
 
 import type { EmailMessage, ImapConfig } from '../../../common/types'
 
-const imaplogger = (...args: unknown[]): void => {
-  const message = args[0]
-  if (typeof message === 'string') {
-    // Filter out node-imap debug messages
-    if (
-      message.includes('=>') ||
-      message.includes('<=') ||
-      message.includes('Parser.js:') ||
-      message.includes('Connection.js:')
-    ) {
-      return
-    }
-    console.log(...args)
-  }
-}
-
 // Create IMAP connection
-export const createImapConnection = (config: ImapConfig): Imap => {
+export const createImapConnection = (
+  config: ImapConfig,
+  log: (...args: unknown[]) => void
+): Imap => {
+  const imaplogger = (...args: unknown[]): void => {
+    const message = args[0]
+    if (typeof message === 'string') {
+      // Filter out node-imap debug messages
+      if (
+        message.includes('=>') ||
+        message.includes('<=') ||
+        message.includes('Parser.js:') ||
+        message.includes('Connection.js:')
+      ) {
+        return
+      }
+      log(...args)
+    }
+  }
   return new Imap({
     user: config.email,
     password: config.password,

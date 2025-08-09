@@ -6,7 +6,6 @@ import type { ImapConfig, ImapConfigDoc } from '../../../common/types'
 import {
   formatEmailBody,
   isValidEmail,
-  logger,
   matchesSubject
 } from '../../../common/utils'
 import { getEmailStatus, saveEmailStatus } from './databaseService'
@@ -20,13 +19,14 @@ export const processEmailForwarding = async (
   imap: Imap,
   smtp: nodemailer.Transporter,
   config: ImapConfig,
-  db: nano.DocumentScope<ImapConfigDoc>
+  db: nano.DocumentScope<ImapConfigDoc>,
+  log: (...args: unknown[]) => void
 ): Promise<void> => {
   try {
     // Connect to IMAP
     await new Promise<void>((resolve, reject) => {
       imap.once('ready', () => {
-        logger.mail(`IMAP connection ready for ${config.email}`)
+        log(`IMAP connection ready for ${config.email}`)
         resolve()
       })
       imap.once('error', reject)
@@ -52,18 +52,16 @@ export const processEmailForwarding = async (
           continue
         }
 
-        logger.mail(`Processing message: ${message.subject} (${message.date})`)
+        log(`Processing message: ${message.subject} (${message.date})`)
 
         // Check if subject matches any forwarding rules
         for (const rule of config.forwardRules) {
           if (matchesSubject(message.subject, rule.subjectSearch)) {
-            logger.mail(`Subject matches rule: ${rule.subjectSearch}`)
+            log(`Subject matches rule: ${rule.subjectSearch}`)
 
             // Validate destination email
             if (!isValidEmail(rule.destinationEmail)) {
-              logger.error(
-                `Invalid destination email: ${rule.destinationEmail}`
-              )
+              log(`Invalid destination email: ${rule.destinationEmail}`)
               continue
             }
 
@@ -83,7 +81,7 @@ export const processEmailForwarding = async (
               formattedBody
             )
 
-            logger.mail(`Email forwarded to: ${rule.destinationEmail}`)
+            log(`Email forwarded to: ${rule.destinationEmail}`)
           }
         }
 
@@ -92,7 +90,7 @@ export const processEmailForwarding = async (
           latestProcessedDate = messageDate
         }
       } catch (error: unknown) {
-        logger.error(`Error processing message ${messageId}:`, error)
+        log(`Error processing message ${messageId}:`, error)
       }
     }
 
@@ -101,15 +99,12 @@ export const processEmailForwarding = async (
       await saveEmailStatus(db, config.email, {
         lastRead: latestProcessedDate.toISOString()
       })
-      logger.mail(
+      log(
         `Updated last read timestamp to: ${latestProcessedDate.toISOString()}`
       )
     }
   } catch (error: unknown) {
-    logger.error(
-      `Error processing email forwarding for ${config.email}:`,
-      error
-    )
+    log(`Error processing email forwarding for ${config.email}:`, error)
     throw error
   }
 }
