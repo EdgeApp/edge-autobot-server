@@ -3,6 +3,7 @@ import nano from 'nano'
 import {
   asEmailStatus,
   asImapConfig,
+  asImapConfigDoc,
   type EmailForwardRule,
   type EmailStatus,
   type EmailStatusDoc,
@@ -53,7 +54,9 @@ export const getImapConfig = async (
 ): Promise<ImapConfig | null> => {
   try {
     const doc = await db.get(emailAddress)
-    return asImapConfig(doc)
+    const configDoc = asImapConfigDoc(doc)
+    const out = asImapConfig({ email: doc._id, ...configDoc })
+    return out
   } catch (error: unknown) {
     if (
       error != null &&
@@ -119,19 +122,19 @@ export const deleteImapConfig = async (
 // Get all IMAP configurations
 export const getAllImapConfigs = async (
   db: nano.DocumentScope<ImapConfigDoc>
-): Promise<Array<{ emailAddress: string; config: ImapConfig }>> => {
+): Promise<ImapConfig[]> => {
   try {
     const response = await db.list({ include_docs: true })
-    const configs: Array<{ emailAddress: string; config: ImapConfig }> = []
+    const configs: ImapConfig[] = []
 
     for (const row of response.rows) {
       // Skip design documents and documents without email field
       if (row.doc?.forwardRules != null && row.doc.active) {
         try {
-          const config = asImapConfig(row.doc)
+          const config = asImapConfigDoc(row.doc)
           configs.push({
-            emailAddress: row.id,
-            config
+            email: row.doc._id,
+            ...config
           })
         } catch (error) {
           console.error(`Error parsing config for ${row.id}:`, error)

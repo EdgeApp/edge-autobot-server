@@ -15,9 +15,10 @@ export async function mailBotEngine({ log }: AutobotEngineArgs): Promise<void> {
   log(`Found ${configs.length} email configurations to process`)
 
   // Process each email configuration
-  for (const { emailAddress, config: imapConfig } of configs) {
+  for (const imapConfig of configs) {
+    const { email } = imapConfig
     try {
-      log(`Processing email: ${emailAddress}`)
+      log(`Processing email: ${email}`)
 
       // Create fresh connections for each email
       const imap = createImapConnection(imapConfig, log)
@@ -29,9 +30,9 @@ export async function mailBotEngine({ log }: AutobotEngineArgs): Promise<void> {
       // Close connections
       imap.end()
 
-      log(`Completed processing for: ${emailAddress}`)
+      log(`Completed processing for: ${email}`)
     } catch (error: unknown) {
-      log(`Error processing email ${emailAddress}:`, error)
+      log(`Error processing email ${email}:`, error)
       // Continue with next email even if one fails
     }
   }

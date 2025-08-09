@@ -12,14 +12,18 @@ export const asEmailForwardRule = asObject({
   destinationEmail: asString
 })
 
-export const asImapConfig = asObject({
-  email: asString,
+export const asImapConfigDoc = asObject({
   password: asString,
   active: asOptional(asBoolean, false),
   host: asOptional(asString, 'imap.gmail.com'),
   port: asOptional(asNumber, 993),
   tls: asOptional(asString, 'implicit'),
   forwardRules: asArray(asEmailForwardRule)
+})
+
+export const asImapConfig = asObject({
+  email: asString,
+  ...asImapConfigDoc.shape
 })
 
 export const asEmailStatus = asObject({

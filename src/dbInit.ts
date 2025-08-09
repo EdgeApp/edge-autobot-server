@@ -20,7 +20,6 @@ const emailConfigIndexes = {
   'test@example.com': {
     _id: 'test@example.com',
     active: false, // Set this to true for real entries
-    email: 'test@example.com',
     password: 'password',
     host: 'imap.gmail.com',
     port: 993,
