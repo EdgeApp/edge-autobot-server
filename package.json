@@ -19,7 +19,7 @@
     "lint": "eslint . --ext .ts,.tsx",
     "fix": "eslint . --ext .ts,.tsx --fix",
     "clean": "rimraf lib dist",
-    "precommit": "yarn lint",
+    "precommit": "yarn lint && yarn build",
     "postinstall": "yarn prepare",
     "test": ""
   },
