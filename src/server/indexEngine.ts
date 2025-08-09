@@ -1,5 +1,6 @@
 import { snooze } from '../common/utils'
 import { mailBot } from './bots/autoForwarder/mailBot'
+import { edgeTesterBot } from './bots/edgeTester/testerBot'
 import type { AutobotEngine } from './types'
 
 type Frequency = 'minute' | 'hour' | 'day' | 'week' | 'month'
@@ -40,7 +41,7 @@ const createEngineLoop = async (
 }
 
 const main = (): void => {
-  const autobots = [mailBot]
+  const autobots = [mailBot, edgeTesterBot]
   for (const autobot of autobots) {
     const { botId, engines } = autobot
     if (engines == null) continue
