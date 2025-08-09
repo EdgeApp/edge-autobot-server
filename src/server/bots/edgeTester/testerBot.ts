@@ -1,19 +1,26 @@
 import { execFile } from 'node:child_process'
+import { mkdtemp, rm } from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import { promisify } from 'node:util'
 
+import { snooze } from '../../../common/utils'
 import type { Autobot, AutobotEngineArgs } from '../../types'
 
 const execFileAsync = promisify(execFile)
 
 const REPO_SSH_URL = 'git@github.com:EdgeApp/edge-tester.git'
+const TEN_MINUTES = 10 * 60 * 1000
 
 async function runGit(
   args: string[],
-  log: (...args: unknown[]) => void
+  log: (...args: unknown[]) => void,
+  cwd?: string
 ): Promise<string> {
   log('git', args.join(' '))
   const { stdout } = await execFileAsync('git', args, {
-    maxBuffer: 10 * 1024 * 1024
+    maxBuffer: 10 * 1024 * 1024,
+    cwd
   })
   return stdout
 }
@@ -45,37 +52,41 @@ export async function edgeTesterEngine({
   const headsOut = await runGit(['ls-remote', '--heads', REPO_SSH_URL], log)
   const nameToHash = parseHeads(headsOut)
 
-  for (const [branchName, hash] of Array.from(nameToHash.entries())) {
-    if (!isTargetBranch(branchName)) continue
+  // Prepare a temporary local repository to fetch and push from
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'edge-tester-'))
+  try {
+    await runGit(['init'], log, tempDir)
+    await runGit(['remote', 'add', 'origin', REPO_SSH_URL], log, tempDir)
 
-    const mirrorName = `${branchName}-mirror`
-    const currentMirrorHash = nameToHash.get(mirrorName)
+    for (const [branchName, hash] of Array.from(nameToHash.entries())) {
+      if (!isTargetBranch(branchName)) continue
 
-    if (currentMirrorHash == null) {
-      // Create mirror branch at the target hash
-      const refspec = `${hash}:refs/heads/${mirrorName}`
-      try {
-        await runGit(['push', '--force', REPO_SSH_URL, refspec], log)
-        log(`Created mirror: ${mirrorName} -> ${hash.slice(0, 12)}`)
-      } catch (e: unknown) {
-        log(`Failed to create mirror ${mirrorName}:`, e)
+      const mirrorName = `${branchName}-mirror`
+      const currentMirrorHash = nameToHash.get(mirrorName)
+
+      if (currentMirrorHash === hash) {
+        log(`Mirror up-to-date: ${mirrorName} -> ${hash.slice(0, 12)}`)
+        continue
       }
-      continue
-    }
 
-    if (currentMirrorHash === hash) {
-      log(`Mirror up-to-date: ${mirrorName} -> ${hash.slice(0, 12)}`)
-      continue
+      try {
+        // Fetch the exact branch tip into FETCH_HEAD (shallow)
+        await runGit(['fetch', '--depth=1', 'origin', branchName], log, tempDir)
+        // Force-push FETCH_HEAD to mirror ref on remote
+        const refspec = `FETCH_HEAD:refs/heads/${mirrorName}`
+        await runGit(['push', '--force', 'origin', refspec], log, tempDir)
+        const action = currentMirrorHash == null ? 'Created' : 'Updated'
+        log(`${action} mirror: ${mirrorName} -> ${hash.slice(0, 12)}`)
+      } catch (e: unknown) {
+        log(`Failed to update mirror ${mirrorName}:`, e)
+      }
+      // Wait for 10 minutes before updating the next branch to give time
+      // for the previous branch to be tested. A bug in the test runner
+      // sometimes causes duplicate tests to be queued.
+      await snooze(TEN_MINUTES)
     }
-
-    // Update mirror to the target hash
-    const refspec = `${hash}:refs/heads/${mirrorName}`
-    try {
-      await runGit(['push', '--force', REPO_SSH_URL, refspec], log)
-      log(`Updated mirror: ${mirrorName} -> ${hash.slice(0, 12)}`)
-    } catch (e: unknown) {
-      log(`Failed to update mirror ${mirrorName}:`, e)
-    }
+  } finally {
+    await rm(tempDir, { recursive: true, force: true })
   }
 }
 
@@ -84,8 +95,8 @@ export const edgeTesterBot: Autobot = {
   engines: [
     {
       engine: edgeTesterEngine,
-      // Run tester at 1am every day
-      cron: '0 1 * * *'
+      // Run every date at midnight
+      cron: '0 0 * * *'
     }
   ]
 }
