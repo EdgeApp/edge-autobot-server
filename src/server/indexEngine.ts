@@ -1,6 +1,7 @@
 import cron from 'node-cron'
 
 import { snooze } from '../common/utils'
+import { config } from '../config'
 import { mailBot } from './bots/autoForwarder/mailBot'
 import { edgeTesterBot } from './bots/edgeTester/testerBot'
 import type { AutobotEngineConfig } from './types'
@@ -63,6 +64,8 @@ const main = (): void => {
   for (const autobot of autobots) {
     const { botId, engines } = autobot
     if (engines == null) continue
+    if (config.enablePlugins[botId] == null || !config.enablePlugins[botId])
+      continue
 
     for (const engine of engines) {
       createEngineLoop(botId, engine).catch((e: unknown) => {
