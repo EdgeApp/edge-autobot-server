@@ -14,4 +14,4 @@ export const asConfig = asObject({
   }))
 })
 
-export const config = makeConfig(asConfig, 'config.json')
+export const config = makeConfig(asConfig, 'serverConfig.json')
