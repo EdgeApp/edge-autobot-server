@@ -1,5 +1,5 @@
 import { makeConfig } from 'cleaner-config'
-import { asNumber, asObject, asOptional, asString } from 'cleaners'
+import { asBoolean, asNumber, asObject, asOptional, asString } from 'cleaners'
 import { asCouchCredentials } from 'edge-server-tools'
 
 export const asConfig = asObject({
@@ -11,7 +11,11 @@ export const asConfig = asObject({
       username: 'admin',
       password: 'admin'
     }
-  }))
+  })),
+  enablePlugins: asOptional(asObject(asBoolean), {
+    edgeTester: true,
+    mailForwarder: true
+  })
 })
 
-export const config = makeConfig(asConfig, 'config.json')
+export const config = makeConfig(asConfig, 'serverConfig.json')

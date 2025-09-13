@@ -53,7 +53,7 @@ yarn setup
 
 ### 4. Configuration
 
-The server uses a `config.json` file for CouchDB connection:
+The server uses a `serverConfig.json` file for CouchDB connection:
 
 ```json
 {
