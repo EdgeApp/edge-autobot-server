@@ -3,6 +3,7 @@ import cron from 'node-cron'
 import { snooze } from '../common/utils'
 import { config } from '../config'
 import { mailBot } from './bots/autoForwarder/mailBot'
+import { bridgelessBot } from './bots/bridgeless/bridgelessBot'
 import { edgeTesterBot } from './bots/edgeTester/testerBot'
 import type { AutobotEngineConfig } from './types'
 
@@ -47,7 +48,7 @@ const createEngineLoop = async (
       try {
         await engine({ log })
       } catch (err) {
-        log('Engine failed to run')
+        log('Engine failed to run', err)
       }
       const timeSinceStart = Date.now() - startTime
       const timeToWait = Math.max(0, delayMs - timeSinceStart)
@@ -60,7 +61,7 @@ const createEngineLoop = async (
 }
 
 const main = (): void => {
-  const autobots = [edgeTesterBot, mailBot]
+  const autobots = [edgeTesterBot, mailBot, bridgelessBot]
   for (const autobot of autobots) {
     const { botId, engines } = autobot
     if (engines == null) continue
