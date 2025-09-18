@@ -2,6 +2,7 @@ import express from 'express'
 import path from 'path'
 
 import { config } from '../config'
+import { handleBridgelessDeposit } from './bots/bridgeless/bridgelessBot'
 
 async function main(): Promise<void> {
   console.log('Starting API Server (Frontend Only)...')
@@ -32,6 +33,10 @@ async function main(): Promise<void> {
   // Handle client-side routing - serve React app for all other routes
   app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../../dist/index.html'))
+  })
+
+  app.put('/api/bridgeless', (req, res) => {
+    handleBridgelessDeposit(req, res)
   })
 
   // Start server

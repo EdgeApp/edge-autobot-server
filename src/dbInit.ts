@@ -7,6 +7,7 @@ import {
 } from 'edge-server-tools'
 
 import { config } from './config'
+import { bridgelessDatabaseSetup } from './server/bots/bridgeless/databaseService'
 
 // Create indexes and default documents for email configurations
 const emailConfigIndexes = {
@@ -39,7 +40,7 @@ const emailForwardsDatabaseSetup: DatabaseSetup = {
   documents: emailConfigIndexes
 }
 
-const databases = [emailForwardsDatabaseSetup]
+const databases = [emailForwardsDatabaseSetup, bridgelessDatabaseSetup]
 
 const options: SetupDatabaseOptions = {}
 
