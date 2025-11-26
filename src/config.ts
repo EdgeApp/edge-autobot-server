@@ -17,6 +17,6 @@ export const asConfig = asObject({
     edgeTester: true,
     mailForwarder: true
   })
-})
+}).withRest
 
 export const config = makeConfig(asConfig, 'serverConfig.json')
