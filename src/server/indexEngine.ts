@@ -29,6 +29,20 @@ const createEngineLoop = async (
     console.log(`${date}:${botId}:${label}: ${args.join(' ')}`)
   }
 
+  log.warn = (...args: unknown[]): void => {
+    const now = new Date().toISOString()
+    const date = now.slice(5)
+    const label = cronExpr ?? frequency ?? 'unknown'
+    console.warn(`${date}:${botId}:${label}: ${args.join(' ')}`)
+  }
+
+  log.error = (...args: unknown[]): void => {
+    const now = new Date().toISOString()
+    const date = now.slice(5)
+    const label = cronExpr ?? frequency ?? 'unknown'
+    console.error(`${date}:${botId}:${label}: ${args.join(' ')}`)
+  }
+
   if (cronExpr != null) {
     // Cron-based scheduling takes precedence
     const task = cron.schedule(cronExpr, async () => {

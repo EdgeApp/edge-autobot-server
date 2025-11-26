@@ -1,5 +1,9 @@
+export type LogFunction = ((...args: unknown[]) => void) & {
+  warn: (...args: unknown[]) => void
+  error: (...args: unknown[]) => void
+}
 export interface AutobotEngineArgs {
-  log: (...args: unknown[]) => void
+  log: LogFunction
 }
 
 export type AutobotEngine = (args: AutobotEngineArgs) => Promise<void>
