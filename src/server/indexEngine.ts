@@ -5,6 +5,7 @@ import { config } from '../config'
 import { mailBot } from './bots/autoForwarder/mailBot'
 import { bridgelessBot } from './bots/bridgeless/bridgelessBot'
 import { edgeTesterBot } from './bots/edgeTester/testerBot'
+import { syncGitCouchBot } from './bots/syncGitCouch/syncGitCouchBot'
 import type { AutobotEngineConfig } from './types'
 
 type Frequency = 'minute' | 'hour' | 'day' | 'week' | 'month'
@@ -75,7 +76,7 @@ const createEngineLoop = async (
 }
 
 const main = (): void => {
-  const autobots = [edgeTesterBot, mailBot, bridgelessBot]
+  const autobots = [edgeTesterBot, mailBot, bridgelessBot, syncGitCouchBot]
   for (const autobot of autobots) {
     const { botId, engines } = autobot
     if (engines == null) continue

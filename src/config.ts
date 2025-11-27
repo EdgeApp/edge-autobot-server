@@ -15,7 +15,8 @@ export const asConfig = asObject({
   enablePlugins: asOptional(asObject(asBoolean), {
     bridgeless: true,
     edgeTester: true,
-    mailForwarder: true
+    mailForwarder: true,
+    syncGitCouch: true
   })
 }).withRest
 
