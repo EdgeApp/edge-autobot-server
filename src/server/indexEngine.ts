@@ -5,6 +5,7 @@ import { config } from '../config'
 import { mailBot } from './bots/autoForwarder/mailBot'
 import { bridgelessBot } from './bots/bridgeless/bridgelessBot'
 import { edgeTesterBot } from './bots/edgeTester/testerBot'
+import { syncGitCouchBot } from './bots/syncGitCouch/syncGitCouchBot'
 import type { AutobotEngineConfig } from './types'
 
 type Frequency = 'minute' | 'hour' | 'day' | 'week' | 'month'
@@ -29,13 +30,35 @@ const createEngineLoop = async (
     console.log(`${date}:${botId}:${label}: ${args.join(' ')}`)
   }
 
+  log.warn = (...args: unknown[]): void => {
+    const now = new Date().toISOString()
+    const date = now.slice(5)
+    const label = cronExpr ?? frequency ?? 'unknown'
+    console.warn(`${date}:${botId}:${label}: ${args.join(' ')}`)
+  }
+
+  log.error = (...args: unknown[]): void => {
+    const now = new Date().toISOString()
+    const date = now.slice(5)
+    const label = cronExpr ?? frequency ?? 'unknown'
+    console.error(`${date}:${botId}:${label}: ${args.join(' ')}`)
+  }
+
   if (cronExpr != null) {
     // Cron-based scheduling takes precedence
+    let isRunning = false
     const task = cron.schedule(cronExpr, async () => {
+      if (isRunning) {
+        log('Engine still running, skipping this tick')
+        return
+      }
+      isRunning = true
       try {
         await engine({ log })
       } catch (err: unknown) {
-        log('Engine failed to run cron:', err)
+        log.error('Engine failed to run cron:', err)
+      } finally {
+        isRunning = false
       }
     })
 
@@ -61,7 +84,7 @@ const createEngineLoop = async (
 }
 
 const main = (): void => {
-  const autobots = [edgeTesterBot, mailBot, bridgelessBot]
+  const autobots = [edgeTesterBot, mailBot, bridgelessBot, syncGitCouchBot]
   for (const autobot of autobots) {
     const { botId, engines } = autobot
     if (engines == null) continue
