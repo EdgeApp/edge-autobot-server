@@ -46,11 +46,19 @@ const createEngineLoop = async (
 
   if (cronExpr != null) {
     // Cron-based scheduling takes precedence
+    let isRunning = false
     const task = cron.schedule(cronExpr, async () => {
+      if (isRunning) {
+        log('Engine still running, skipping this tick')
+        return
+      }
+      isRunning = true
       try {
         await engine({ log })
       } catch (err: unknown) {
-        log('Engine failed to run cron:', err)
+        log.error('Engine failed to run cron:', err)
+      } finally {
+        isRunning = false
       }
     })
 
