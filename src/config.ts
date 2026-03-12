@@ -5,9 +5,29 @@ import { asCouchCredentials } from 'edge-server-tools'
 import { asLifiConfig } from './server/bots/lifi/config'
 import { asSweeperConfig } from './server/bots/sweeper/config'
 
+const asLoginPackageConfigInner = asObject({
+  asanaApiKey: asOptional(asString, '')
+})
+
+export const asLoginPackageConfig = asOptional(asLoginPackageConfigInner, () =>
+  asLoginPackageConfigInner({})
+)
+
+const asVouchersConfigInner = asObject({
+  asanaApiKey: asOptional(asString, ''),
+  couchDbUrl: asOptional(asString, ''),
+  couchUsername: asOptional(asString, '')
+})
+
+export const asVouchersConfig = asOptional(asVouchersConfigInner, () =>
+  asVouchersConfigInner({})
+)
+
 const asPluginConfig = asObject({
   sweeper: asSweeperConfig,
-  lifi: asLifiConfig
+  lifi: asLifiConfig,
+  loginPackage: asLoginPackageConfig,
+  vouchers: asVouchersConfig
 })
 
 export const asConfig = asObject({
