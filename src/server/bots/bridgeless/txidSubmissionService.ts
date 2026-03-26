@@ -36,28 +36,30 @@ export const getRequiredConfirmations = async (
 }
 
 const BITCOIN_BLOCKBOOK_URL = 'https://btc-wusa1.edge.app/api/v2'
+const BITCOIN_CASH_BLOCKBOOK_URL = 'https://bch-eusa1.edge.app/api/v2'
 
-const asBitcoinBlockbookInfo = asObject({
+const asBlockbookInfo = asObject({
   blockbook: asObject({
     bestHeight: asNumber
   })
 })
-const getBitcoinChainHeight = async (): Promise<number> => {
-  const json = await doFetch(`${BITCOIN_BLOCKBOOK_URL}/`)
-  const clean = asBitcoinBlockbookInfo(json)
-  return clean.blockbook.bestHeight
-}
+const getBlockbookChainHeight =
+  (blockbookUrl: string) => async (): Promise<number> => {
+    const json = await doFetch(`${blockbookUrl}/`)
+    const clean = asBlockbookInfo(json)
+    return clean.blockbook.bestHeight
+  }
 
-const asBitcoinTransaction = asObject({
+const asBlockbookTransaction = asObject({
   blockHeight: asNumber
 })
-const getBitcoinTransactionHeight = async (txid: string): Promise<number> => {
-  const json = await doFetch(
-    `${BITCOIN_BLOCKBOOK_URL}/tx/${txid.replace(/^0x/, '')}`
-  )
-  const clean = asBitcoinTransaction(json)
-  return Math.max(clean.blockHeight, 0)
-}
+const getBlockbookTransactionHeight =
+  (blockbookUrl: string) =>
+  async (txid: string): Promise<number> => {
+    const json = await doFetch(`${blockbookUrl}/tx/${txid.replace(/^0x/, '')}`)
+    const clean = asBlockbookTransaction(json)
+    return Math.max(clean.blockHeight, 0)
+  }
 
 const ZANO_RPC_URL = 'http://37.27.100.59:10500'
 
@@ -157,8 +159,13 @@ export const chainUtils: Record<
 > = {
   // bitcoin
   '0': {
-    getChainHeight: getBitcoinChainHeight,
-    getTxHeight: getBitcoinTransactionHeight
+    getChainHeight: getBlockbookChainHeight(BITCOIN_BLOCKBOOK_URL),
+    getTxHeight: getBlockbookTransactionHeight(BITCOIN_BLOCKBOOK_URL)
+  },
+  // bitcoin cash
+  '5': {
+    getChainHeight: getBlockbookChainHeight(BITCOIN_CASH_BLOCKBOOK_URL),
+    getTxHeight: getBlockbookTransactionHeight(BITCOIN_CASH_BLOCKBOOK_URL)
   },
   // Zano
   '2': {
