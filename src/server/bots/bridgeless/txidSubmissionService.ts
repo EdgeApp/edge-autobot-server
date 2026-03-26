@@ -1,5 +1,13 @@
-import { asNumber, asObject, asValue } from 'cleaners'
+import {
+  asEither,
+  asNull,
+  asNumber,
+  asObject,
+  asString,
+  asValue
+} from 'cleaners'
 
+import { config } from '../../../config'
 import type { BridgelessSubmission } from './types'
 
 const doFetch = async (
@@ -59,6 +67,97 @@ const getBlockbookTransactionHeight =
     const json = await doFetch(`${blockbookUrl}/tx/${txid.replace(/^0x/, '')}`)
     const clean = asBlockbookTransaction(json)
     return Math.max(clean.blockHeight, 0)
+  }
+
+const ETHERSCAN_API_URL = 'https://api.etherscan.io/v2/api'
+
+const asEthRpcBlockNumber = asObject({
+  result: asString
+})
+
+const asEthRpcTransactionReceipt = asObject({
+  result: asEither(
+    asObject({
+      blockNumber: asString
+    }),
+    asNull
+  )
+})
+
+const hexQuantityToNumber = (hex: string): number => {
+  const cleanHex = hex.startsWith('0x') ? hex.slice(2) : hex
+  if (cleanHex === '') return 0
+  const num = parseInt(cleanHex, 16)
+  if (isNaN(num)) throw new Error(`Invalid hex quantity: ${hex}`)
+  return num
+}
+
+const asEtherscanError = asObject({
+  status: asValue('0'),
+  message: asString,
+  result: asString
+})
+
+const doEtherscanFetch = async (
+  chainId: string,
+  method: string,
+  params: unknown[]
+): Promise<unknown> => {
+  const txHash =
+    method === 'eth_getTransactionReceipt' &&
+    typeof params[0] === 'string' &&
+    params[0] !== ''
+      ? `&txhash=${params[0]}`
+      : ''
+  const url =
+    `${ETHERSCAN_API_URL}?chainid=${chainId}` +
+    `&module=proxy&action=${method}${txHash}` +
+    `&apikey=${config.etherscanApiKey}`
+  const json = await doFetch(url)
+
+  try {
+    const etherscanError = asEtherscanError(json)
+    throw new Error(`Etherscan ${method} failed: ${etherscanError.result}`)
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith('Etherscan ')) throw e
+  }
+
+  if (
+    json != null &&
+    typeof json === 'object' &&
+    'error' in json &&
+    json.error != null
+  ) {
+    const message =
+      typeof json.error === 'object' &&
+      json.error != null &&
+      'message' in json.error &&
+      typeof json.error.message === 'string'
+        ? json.error.message
+        : 'Unknown RPC error'
+    throw new Error(`RPC ${method} failed: ${message}`)
+  }
+
+  return json
+}
+
+export const getEtherscanChainHeight =
+  (chainId: string) => async (): Promise<number> => {
+    const json = await doEtherscanFetch(chainId, 'eth_blockNumber', [])
+    const clean = asEthRpcBlockNumber(json)
+    return hexQuantityToNumber(clean.result)
+  }
+
+export const getEtherscanTransactionHeight =
+  (chainId: string) =>
+  async (txid: string): Promise<number> => {
+    const json = await doEtherscanFetch(chainId, 'eth_getTransactionReceipt', [
+      txid.startsWith('0x') ? txid : `0x${txid}`
+    ])
+    const clean = asEthRpcTransactionReceipt(json)
+    return clean.result == null
+      ? 0
+      : hexQuantityToNumber(clean.result.blockNumber)
   }
 
 const ZANO_RPC_URL = 'http://37.27.100.59:10500'
@@ -166,6 +265,21 @@ export const chainUtils: Record<
   '5': {
     getChainHeight: getBlockbookChainHeight(BITCOIN_CASH_BLOCKBOOK_URL),
     getTxHeight: getBlockbookTransactionHeight(BITCOIN_CASH_BLOCKBOOK_URL)
+  },
+  // Ethereum
+  '1': {
+    getChainHeight: getEtherscanChainHeight('1'),
+    getTxHeight: getEtherscanTransactionHeight('1')
+  },
+  // BNB Smart Chain
+  '56': {
+    getChainHeight: getEtherscanChainHeight('56'),
+    getTxHeight: getEtherscanTransactionHeight('56')
+  },
+  // Base
+  '8453': {
+    getChainHeight: getEtherscanChainHeight('8453'),
+    getTxHeight: getEtherscanTransactionHeight('8453')
   },
   // Zano
   '2': {
