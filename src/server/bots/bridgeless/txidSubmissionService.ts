@@ -52,7 +52,9 @@ const asBitcoinTransaction = asObject({
   blockHeight: asNumber
 })
 const getBitcoinTransactionHeight = async (txid: string): Promise<number> => {
-  const json = await doFetch(`${BITCOIN_BLOCKBOOK_URL}/tx/${txid}`)
+  const json = await doFetch(
+    `${BITCOIN_BLOCKBOOK_URL}/tx/${txid.replace(/^0x/, '')}`
+  )
   const clean = asBitcoinTransaction(json)
   return Math.max(clean.blockHeight, 0)
 }
@@ -131,7 +133,7 @@ const getZanoTransactionHeight = async (txid: string): Promise<number> => {
     jsonrpc: '2.0',
     method: 'get_tx_details',
     params: {
-      tx_hash: txid
+      tx_hash: txid.replace(/^0x/, '')
     }
   }
   const opts = {
