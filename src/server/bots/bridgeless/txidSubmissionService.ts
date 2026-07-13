@@ -23,24 +23,24 @@ const doFetch = async (
   return json
 }
 
-const asBridgelessNumConfirmations = asObject({
+const asBridgelessChainInfo = asObject({
   chain: asObject({
     // "id": "0",
     // "type": "BITCOIN",
     // "bridge_address": "1E3TeJbW5iy6b2YLF427Za4HTaYQ3yFSUK",
     // "operator": "1E3TeJbW5iy6b2YLF427Za4HTaYQ3yFSUK",
-    confirmations: asNumber
-    // "name": "Bitcoin"
+    confirmations: asNumber,
+    name: asString
   })
 })
-export const getRequiredConfirmations = async (
+export const getBridgeChainInfo = async (
   chainId: string
-): Promise<number> => {
+): Promise<{ confirmations: number; name: string }> => {
   const json = await doFetch(
     `https://rpc-api.node0.mainnet.bridgeless.com/cosmos/bridge/chains/${chainId}`
   )
-  const clean = asBridgelessNumConfirmations(json)
-  return clean.chain.confirmations
+  const clean = asBridgelessChainInfo(json)
+  return clean.chain
 }
 
 const BITCOIN_BLOCKBOOK_URL = 'https://btc-wusa1.edge.app/api/v2'
@@ -291,7 +291,7 @@ export const chainUtils: Record<
 export const submitBridgelessDeposit = async (
   args: BridgelessSubmission,
   log: (...args: unknown[]) => void = console.log
-): Promise<void> => {
+): Promise<{ txHash: string; txNonce: string }> => {
   const safeTxHash = args.txHash.startsWith('0x')
     ? args.txHash
     : `0x${args.txHash}`
@@ -311,11 +311,12 @@ export const submitBridgelessDeposit = async (
     })
   } catch (e) {
     if (e instanceof Error && e.message.includes('deposit already exists')) {
-      // do nothing, safe to delete doc
+      // Safe to record the doc as submitted.
       log(`TSS submit: deposit already exists for ${safeTxHash} (ok)`)
     } else {
       log(`TSS submit FAILED for ${safeTxHash}:`, e)
       throw e
     }
   }
+  return { txHash: safeTxHash, txNonce: args.txNonce }
 }

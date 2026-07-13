@@ -43,20 +43,69 @@ export const createCouchConnection = (): nano.DocumentScope<BridgelessDoc> => {
   return couch.use('autobot_bridgeless_txids')
 }
 
-export const getAllBridgelessDocs = async (
+const PENDING_QUERY_LIMIT = 500 // page size for the pending-docs query
+
+// One-time (per process) database preparation: create the status index used
+// by the pending query, and stamp `status: 'pending'` onto any docs written
+// before the field existed (docs without an indexed field are invisible to
+// Mango queries on it).
+let dbReady = false
+export const ensureBridgelessDbReady = async (
+  db: nano.DocumentScope<BridgelessDoc>
+): Promise<void> => {
+  if (dbReady) return
+
+  await db.createIndex({
+    index: { fields: ['status'] },
+    ddoc: 'bridgeless-indexes',
+    name: 'status-idx'
+  })
+
+  const response = await db.list({ include_docs: true })
+  for (const row of response.rows) {
+    const raw: unknown = row.doc
+    if (
+      raw != null &&
+      typeof raw === 'object' &&
+      !('status' in raw) &&
+      'txHash' in raw
+    ) {
+      const couchDoc = asMaybe(asBridgelessDoc)(raw)
+      if (couchDoc == null) continue
+      await db.insert({ ...couchDoc, status: 'pending' })
+    }
+  }
+
+  dbReady = true
+}
+
+export const getPendingBridgelessDocs = async (
   db: nano.DocumentScope<BridgelessDoc>
 ): Promise<Record<string, BridgelessDoc[]> | null> => {
   try {
-    const response = await db.list({ include_docs: true })
-
     const out: Record<string, BridgelessDoc[]> = {}
 
-    for (const row of response.rows) {
-      const couchDoc = asMaybe(asBridgelessDoc)(row.doc)
-      if (couchDoc == null) continue
+    // Page through the full pending set so a large backlog cannot hide
+    // documents beyond the first page.
+    let bookmark: string | undefined
+    while (true) {
+      const response = await db.find({
+        selector: { status: 'pending' },
+        limit: PENDING_QUERY_LIMIT,
+        bookmark
+      })
 
-      out[couchDoc.chainId] ??= []
-      out[couchDoc.chainId].push(couchDoc)
+      for (const doc of response.docs) {
+        const couchDoc = asMaybe(asBridgelessDoc)(doc)
+        if (couchDoc == null) continue
+
+        out[couchDoc.chainId] ??= []
+        out[couchDoc.chainId].push(couchDoc)
+      }
+
+      if (response.docs.length < PENDING_QUERY_LIMIT) break
+      if (response.bookmark == null || response.bookmark === bookmark) break
+      bookmark = response.bookmark
     }
     return out
   } catch (error: unknown) {
@@ -80,6 +129,10 @@ export const createBridgelessDoc = async (
   await db.insert({
     ...submission,
     confirmedHeight: 0,
+    status: 'pending' as const,
+    chainName: undefined,
+    submittedAt: undefined,
+    submitted: undefined,
     _id: `${submission.chainId}_${submission.txHash}`,
     _rev: undefined
   })
