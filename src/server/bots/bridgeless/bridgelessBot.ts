@@ -36,8 +36,10 @@ async function bridgelessBotEngine({ log }: AutobotEngineArgs): Promise<void> {
       const numConfirmations = await getRequiredConfirmations(chainId)
 
       for (const document of documents) {
-        if (document.confirmedHeight === 0) {
-          try {
+        // Isolate each document so one failing txid (e.g. a deposit the TSS
+        // rejects every tick) cannot starve the rest of its chain.
+        try {
+          if (document.confirmedHeight === 0) {
             const txHeight = await chainUtils[chainId].getTxHeight(
               document.txHash
             )
@@ -49,21 +51,24 @@ async function bridgelessBotEngine({ log }: AutobotEngineArgs): Promise<void> {
             document.confirmedHeight = txHeight
             await updateBridgelessDoc(db, document)
             log(`txid ${document.txHash}: included at height ${txHeight}`)
-          } catch (error) {
-            log(`Error updating txid ${document.txHash}:`, error)
-            continue
           }
-        }
 
-        const confirmations = chainHeight - document.confirmedHeight + 1
-        if (document.confirmedHeight + (numConfirmations - 1) <= chainHeight) {
-          await submitBridgelessDeposit(document, log)
-          log('Successfully submitted deposit for txid:', document.txHash)
-          await deleteBridgelessDoc(db, document)
-        } else {
-          log(
-            `txid ${document.txHash}: waiting for confirmations (${confirmations}/${numConfirmations})`
-          )
+          const confirmations = chainHeight - document.confirmedHeight + 1
+          if (
+            document.confirmedHeight + (numConfirmations - 1) <=
+            chainHeight
+          ) {
+            await submitBridgelessDeposit(document, log)
+            log('Successfully submitted deposit for txid:', document.txHash)
+            await deleteBridgelessDoc(db, document)
+          } else {
+            log(
+              `txid ${document.txHash}: waiting for confirmations (${confirmations}/${numConfirmations})`
+            )
+          }
+        } catch (error) {
+          log(`Error processing txid ${document.txHash}:`, error)
+          continue
         }
       }
     } catch (error) {
