@@ -289,27 +289,32 @@ export const chainUtils: Record<
 }
 
 export const submitBridgelessDeposit = async (
-  args: BridgelessSubmission
+  args: BridgelessSubmission,
+  log: (...args: unknown[]) => void = console.log
 ): Promise<void> => {
   const safeTxHash = args.txHash.startsWith('0x')
     ? args.txHash
     : `0x${args.txHash}`
+  const body = {
+    txHash: safeTxHash,
+    txNonce: args.txNonce,
+    chainId: args.chainId
+  }
+  log(`TSS submit request: ${JSON.stringify(body)}`)
   try {
     await doFetch('https://tss1.mainnet.bridgeless.com/submit', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        txHash: safeTxHash,
-        txNonce: args.txNonce,
-        chainId: args.chainId
-      })
+      body: JSON.stringify(body)
     })
   } catch (e) {
     if (e instanceof Error && e.message.includes('deposit already exists')) {
       // do nothing, safe to delete doc
+      log(`TSS submit: deposit already exists for ${safeTxHash} (ok)`)
     } else {
+      log(`TSS submit FAILED for ${safeTxHash}:`, e)
       throw e
     }
   }

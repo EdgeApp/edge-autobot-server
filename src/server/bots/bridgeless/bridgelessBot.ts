@@ -42,21 +42,28 @@ async function bridgelessBotEngine({ log }: AutobotEngineArgs): Promise<void> {
               document.txHash
             )
             if (txHeight === 0) {
+              log(`txid ${document.txHash}: not found on chain yet, waiting`)
               continue
             }
 
             document.confirmedHeight = txHeight
             await updateBridgelessDoc(db, document)
+            log(`txid ${document.txHash}: included at height ${txHeight}`)
           } catch (error) {
             log(`Error updating txid ${document.txHash}:`, error)
             continue
           }
         }
 
+        const confirmations = chainHeight - document.confirmedHeight + 1
         if (document.confirmedHeight + (numConfirmations - 1) <= chainHeight) {
-          await submitBridgelessDeposit(document)
+          await submitBridgelessDeposit(document, log)
           log('Successfully submitted deposit for txid:', document.txHash)
           await deleteBridgelessDoc(db, document)
+        } else {
+          log(
+            `txid ${document.txHash}: waiting for confirmations (${confirmations}/${numConfirmations})`
+          )
         }
       }
     } catch (error) {
