@@ -45,21 +45,23 @@ export const createCouchConnection = (): nano.DocumentScope<BridgelessDoc> => {
 
 const PENDING_QUERY_LIMIT = 500 // page size for the pending-docs query
 
-// One-time (per process) database preparation: create the status index used
-// by the pending query, and stamp `status: 'pending'` onto any docs written
-// before the field existed (docs without an indexed field are invisible to
-// Mango queries on it).
-let dbReady = false
+// Prepare the database for the pending query: create the status index once
+// per process, and stamp `status: 'pending'` onto any docs written without
+// one. Documents missing an indexed field are invisible to Mango queries, and
+// servers still running the pre-status code write such docs into this shared
+// database, so the stamp runs every tick rather than only at startup.
+let indexReady = false
 export const ensureBridgelessDbReady = async (
   db: nano.DocumentScope<BridgelessDoc>
 ): Promise<void> => {
-  if (dbReady) return
-
-  await db.createIndex({
-    index: { fields: ['status'] },
-    ddoc: 'bridgeless-indexes',
-    name: 'status-idx'
-  })
+  if (!indexReady) {
+    await db.createIndex({
+      index: { fields: ['status'] },
+      ddoc: 'bridgeless-indexes',
+      name: 'status-idx'
+    })
+    indexReady = true
+  }
 
   const response = await db.list({ include_docs: true })
   for (const row of response.rows) {
@@ -75,8 +77,6 @@ export const ensureBridgelessDbReady = async (
       await db.insert({ ...couchDoc, status: 'pending' })
     }
   }
-
-  dbReady = true
 }
 
 export const getPendingBridgelessDocs = async (
