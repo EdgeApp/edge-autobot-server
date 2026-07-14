@@ -1,4 +1,5 @@
 import {
+  asArray,
   asEither,
   asNull,
   asNumber,
@@ -23,24 +24,50 @@ const doFetch = async (
   return json
 }
 
-const asBridgelessNumConfirmations = asObject({
+const snooze = async (ms: number): Promise<void> => {
+  await new Promise(resolve => setTimeout(resolve, ms))
+}
+
+// The public Solana and TON RPCs are heavily rate limited, so retry with a
+// short delay before giving up.
+const doFetchWithRetry = async (
+  url: string,
+  opts: RequestInit = {},
+  retries = 3
+): Promise<unknown> => {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await doFetch(url, opts)
+    } catch (e) {
+      if (attempt >= retries) throw e
+      console.log(
+        `fetch retry ${attempt + 1}/${retries} for ${
+          new URL(url).host
+        }: ${String(e).slice(0, 200)}`
+      )
+      await snooze(1000)
+    }
+  }
+}
+
+const asBridgelessChainInfo = asObject({
   chain: asObject({
     // "id": "0",
     // "type": "BITCOIN",
     // "bridge_address": "1E3TeJbW5iy6b2YLF427Za4HTaYQ3yFSUK",
     // "operator": "1E3TeJbW5iy6b2YLF427Za4HTaYQ3yFSUK",
-    confirmations: asNumber
-    // "name": "Bitcoin"
+    confirmations: asNumber,
+    name: asString
   })
 })
-export const getRequiredConfirmations = async (
+export const getBridgeChainInfo = async (
   chainId: string
-): Promise<number> => {
+): Promise<{ confirmations: number; name: string }> => {
   const json = await doFetch(
     `https://rpc-api.node0.mainnet.bridgeless.com/cosmos/bridge/chains/${chainId}`
   )
-  const clean = asBridgelessNumConfirmations(json)
-  return clean.chain.confirmations
+  const clean = asBridgelessChainInfo(json)
+  return clean.chain
 }
 
 const BITCOIN_BLOCKBOOK_URL = 'https://btc-wusa1.edge.app/api/v2'
@@ -249,6 +276,121 @@ const getZanoTransactionHeight = async (txid: string): Promise<number> => {
   return Math.max(clean.result.tx_info.keeper_block, 0)
 }
 
+// Solana: heights are slots.
+const SOLANA_RPC_URL = 'https://api.mainnet-beta.solana.com'
+
+const solanaRpc = async (
+  method: string,
+  params: unknown[]
+): Promise<unknown> => {
+  return await doFetchWithRetry(SOLANA_RPC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+  })
+}
+
+const asSolanaGetSlot = asObject({ result: asNumber })
+const getSolanaChainHeight = async (): Promise<number> => {
+  const json = await solanaRpc('getSlot', [{ commitment: 'confirmed' }])
+  return asSolanaGetSlot(json).result
+}
+
+const asSolanaGetTransaction = asObject({
+  result: asEither(asObject({ slot: asNumber }), asNull)
+})
+const getSolanaTransactionHeight = async (txid: string): Promise<number> => {
+  // Solana signatures are base58 (no 0x prefix).
+  const json = await solanaRpc('getTransaction', [
+    txid.replace(/^0x/, ''),
+    { commitment: 'confirmed', maxSupportedTransactionVersion: 0 }
+  ])
+  const clean = asSolanaGetTransaction(json)
+  return clean.result == null ? 0 : Math.max(clean.result.slot, 0)
+}
+
+// TON: heights are masterchain seqnos.
+const TON_RPC_URL = 'https://toncenter.com/api/v2/jsonRPC'
+const TON_INDEXER_URL = 'https://toncenter.com/api/v3'
+
+const asTonMasterchainInfo = asObject({
+  result: asObject({ last: asObject({ seqno: asNumber }) })
+})
+const getTonChainHeight = async (): Promise<number> => {
+  const json = await doFetchWithRetry(TON_RPC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'getMasterchainInfo',
+      params: {}
+    })
+  })
+  return asTonMasterchainInfo(json).result.last.seqno
+}
+
+const asTonTransactions = asObject({
+  transactions: asArray(
+    asObject({
+      hash: asString,
+      lt: asString,
+      mc_block_seqno: asEither(asNumber, asNull),
+      out_msgs: asArray(asObject({ hash: asEither(asString, asNull) }))
+    })
+  )
+})
+
+// Look up the single transaction that consumed the given message, using the
+// v3 `transactionsByMessage` endpoint. (`/transactions?msg_hash=` silently
+// ignores the filter and returns unrelated transactions.)
+const getTonTxByMessage = async (
+  msgHashB64: string
+): Promise<
+  ReturnType<typeof asTonTransactions>['transactions'][number] | undefined
+> => {
+  const json = await doFetchWithRetry(
+    `${TON_INDEXER_URL}/transactionsByMessage?msg_hash=${encodeURIComponent(
+      msgHashB64
+    )}&direction=in&limit=1`
+  )
+  return asTonTransactions(json).transactions[0]
+}
+
+interface TonDepositInfo {
+  bridgeTxHash: string // 0x-prefixed hex of the bridge contract's transaction
+  lt: string // logical time of the bridge transaction
+  mcSeqno: number // masterchain seqno the bridge transaction is included in
+}
+
+// The plugin reports the wallet's external-message hash (hex). The bridge/TSS
+// identifies a TON deposit by the BRIDGE CONTRACT's transaction hash and its
+// logical time, so trace: external msg -> wallet tx -> internal msg -> bridge tx.
+const resolveTonDeposit = async (
+  txid: string
+): Promise<TonDepositInfo | undefined> => {
+  const extHashB64 = Buffer.from(txid.replace(/^0x/, ''), 'hex').toString(
+    'base64'
+  )
+  const walletTx = await getTonTxByMessage(extHashB64)
+  const internalMsgHash = walletTx?.out_msgs[0]?.hash
+  if (internalMsgHash == null) return undefined
+
+  const bridgeTx = await getTonTxByMessage(internalMsgHash)
+  if (bridgeTx?.mc_block_seqno == null) return undefined
+
+  return {
+    bridgeTxHash: `0x${Buffer.from(bridgeTx.hash, 'base64').toString('hex')}`,
+    lt: bridgeTx.lt,
+    mcSeqno: bridgeTx.mc_block_seqno
+  }
+}
+
+const getTonTransactionHeight = async (txid: string): Promise<number> => {
+  const deposit = await resolveTonDeposit(txid)
+  return deposit == null ? 0 : Math.max(deposit.mcSeqno, 0)
+}
+
 export const chainUtils: Record<
   string,
   {
@@ -285,32 +427,67 @@ export const chainUtils: Record<
   '2': {
     getChainHeight: getZanoChainHeight,
     getTxHeight: getZanoTransactionHeight
+  },
+  // Solana
+  '4': {
+    getChainHeight: getSolanaChainHeight,
+    getTxHeight: getSolanaTransactionHeight
+  },
+  // TON
+  '3': {
+    getChainHeight: getTonChainHeight,
+    getTxHeight: getTonTransactionHeight
   }
 }
 
 export const submitBridgelessDeposit = async (
-  args: BridgelessSubmission
-): Promise<void> => {
-  const safeTxHash = args.txHash.startsWith('0x')
-    ? args.txHash
-    : `0x${args.txHash}`
+  args: BridgelessSubmission,
+  log: (...args: unknown[]) => void = console.log
+): Promise<{ txHash: string; txNonce: string }> => {
+  // Solana (chain 4) signatures are base58 and must not be 0x-prefixed. Hex
+  // txids (EVM, Bitcoin, Zano, TON) keep the existing 0x normalization.
+  let safeTxHash =
+    args.chainId === '4' || args.txHash.startsWith('0x')
+      ? args.txHash
+      : `0x${args.txHash}`
+  let txNonce = args.txNonce
+
+  // TON deposits are identified by the bridge contract's transaction hash and
+  // its logical time, not the wallet's external-message hash the plugin
+  // reports, so resolve them before submitting.
+  if (args.chainId === '3') {
+    const deposit = await resolveTonDeposit(args.txHash)
+    if (deposit == null) {
+      throw new Error(
+        `TON deposit not resolvable yet for external msg ${args.txHash}`
+      )
+    }
+    safeTxHash = deposit.bridgeTxHash
+    txNonce = deposit.lt
+  }
+
+  const body = {
+    txHash: safeTxHash,
+    txNonce,
+    chainId: args.chainId
+  }
+  log(`TSS submit request: ${JSON.stringify(body)}`)
   try {
     await doFetch('https://tss1.mainnet.bridgeless.com/submit', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        txHash: safeTxHash,
-        txNonce: args.txNonce,
-        chainId: args.chainId
-      })
+      body: JSON.stringify(body)
     })
   } catch (e) {
     if (e instanceof Error && e.message.includes('deposit already exists')) {
-      // do nothing, safe to delete doc
+      // Safe to record the doc as submitted.
+      log(`TSS submit: deposit already exists for ${safeTxHash} (ok)`)
     } else {
+      log(`TSS submit FAILED for ${safeTxHash}:`, e)
       throw e
     }
   }
+  return { txHash: safeTxHash, txNonce }
 }
