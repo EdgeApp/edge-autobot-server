@@ -3,6 +3,7 @@ import path from 'path'
 
 import { config } from '../config'
 import { handleBridgelessDeposit } from './bots/bridgeless/bridgelessBot'
+import { handleHoudiniReport } from './bots/houdini/houdiniBot'
 
 async function main(): Promise<void> {
   console.log('Starting API Server (Frontend Only)...')
@@ -37,6 +38,10 @@ async function main(): Promise<void> {
 
   app.put('/api/bridgeless', (req, res) => {
     handleBridgelessDeposit(req, res)
+  })
+
+  app.put('/api/houdini', (req, res) => {
+    handleHoudiniReport(req, res)
   })
 
   // Start server
