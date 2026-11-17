@@ -21,7 +21,7 @@
     "clean": "rimraf lib dist",
     "precommit": "yarn lint && yarn build",
     "postinstall": "yarn prepare",
-    "test": ""
+    "test": "mocha -r sucrase/register 'test/**/*.test.ts'"
   },
   "husky": {
     "hooks": {
@@ -35,9 +35,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.26.0",
+    "@types/chai": "^4.3.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/mailparser": "^3.4.6",
+    "@types/mocha": "^10.0.0",
     "@types/node": "^20.11.0",
     "@types/node-imap": "^0.9.3",
     "@types/nodemailer": "^6.4.14",
@@ -46,6 +48,7 @@
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
     "biggystring": "^4.2.3",
+    "chai": "^4.2.0",
     "cleaner-config": "^0.1.10",
     "cors": "^2.8.5",
     "edge-server-tools": "0.2.22",
@@ -57,6 +60,7 @@
     "html-webpack-plugin": "^5.6.0",
     "husky": "^9.1.7",
     "mailparser": "^3.7.4",
+    "mocha": "^10.6.0",
     "nano": "^10.1.0",
     "node-imap": "^0.9.6",
     "nodemailer": "^7.0.5",

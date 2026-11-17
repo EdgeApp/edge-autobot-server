@@ -8,6 +8,7 @@ import {
 
 import { config } from './config'
 import { bridgelessDatabaseSetup } from './server/bots/bridgeless/databaseService'
+import { houdiniDatabaseSetup } from './server/bots/houdini/databaseService'
 import { syncGitCouchDatabaseSetup } from './server/bots/syncGitCouch/databaseService'
 
 // Create indexes and default documents for email configurations
@@ -44,6 +45,7 @@ const emailForwardsDatabaseSetup: DatabaseSetup = {
 const databases = [
   emailForwardsDatabaseSetup,
   bridgelessDatabaseSetup,
+  houdiniDatabaseSetup,
   syncGitCouchDatabaseSetup
 ]
 
